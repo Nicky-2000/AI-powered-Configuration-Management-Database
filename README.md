@@ -50,7 +50,50 @@ Implemented with SQLAlchemy (app/models.py):
 - App: (app_id (auto-increment), name, owner, type)
 - Device (device_id, hostname, assigned_user (stores the user_id string), encryption, location, etc.)
 - UserApp: (many-to-many link table (user_id, app_name))
-[ Miro diagram placeholder: ERD of tables and relationships ]
+
+**NOTE** There are some bugs with app ownership that need to be worked out. I didn't have the time to fully resolve them.
+
+```mermaid
+erDiagram
+    USER {
+        string user_id PK
+        string name
+        string email
+        boolean mfa_enabled
+        datetime last_login
+        string status
+        string groups
+    }
+
+    DEVICE {
+        string device_id PK
+        string hostname
+        string ip_address
+        string os
+        string assigned_user FK
+        string location
+        boolean encryption
+        string status
+        datetime last_checkin
+    }
+
+    APP {
+        int app_id PK
+        string name UNIQUE
+        string owner
+        string type
+    }
+
+    USER_APP {
+        string user_id FK
+        string app_name FK
+    }
+
+    USER ||--o{ DEVICE : has
+    USER ||--o{ USER_APP : owns
+    APP  ||--o{ USER_APP : linked
+```
+
 
 ### Why SQL (vs NoSQL/Graph)
 - Strong schema & joins: Users, Devices, and Apps map naturally to relational tables. Constraints catch bad data early and LLMs can safely generate SELECT queries.

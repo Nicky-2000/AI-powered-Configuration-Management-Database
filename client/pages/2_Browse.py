@@ -1,4 +1,3 @@
-# client/pages/3_📚_Browse.py
 import streamlit as st
 import pandas as pd
 import api as API

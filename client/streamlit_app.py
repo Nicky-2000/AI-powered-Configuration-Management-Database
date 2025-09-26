@@ -1,29 +1,38 @@
-# client/streamlit_app.py
 import os
 import requests
 import streamlit as st
 
-st.set_page_config(page_title="CMDB Client", layout="wide")
-st.title("🧰 CMDB Client")
+st.set_page_config(page_title="CMDB Client", layout="wide", page_icon="🧰")
 
-st.markdown("""
-This is the home page.
+st.title("🧰 CMDB Client – Home")
 
-Use the **sidebar Pages** to open:
-- **📥 Ingest** — Generate synthetic hardware/Okta data or paste raw JSON and POST to `/ingest`. Shows batch success/failure and sample errors.
-- **📚 Browse** — Call `/devices`, `/users`, `/apps` with filters and see results in tables.
-- **❓ Ask** — Ask natural language questions. Backend converts to SQL (with guardrails) and returns rows. Also shows the generated SQL.
-""")
+st.markdown(
+    """
+Hello!! Welcome to the CMDB client (By Nicky Khorasani).
 
-with st.sidebar:
-    st.header("Settings")
-    api_url = os.getenv("API_BASE_URL", "http://localhost:8000")
-    st.text_input("API Base URL (from env)", value=api_url, disabled=True)
-    if st.button("Health check"):
-        try:
-            r = requests.get(f"{api_url}/healthz", timeout=5)
-            st.success(r.json())
-        except Exception as e:
-            st.error(f"Health check failed: {e}")
+This is the **home page**, where you can run a quick **Health Check** to confirm:
 
-st.info("Tip: set `API_BASE_URL` in `client/.env` (copy from `.env.sample`) or export it before running `./run_client.sh`.")
+1. the FastAPI server is running
+2. the NL->SQL model has finished loading
+
+Use the sidebar to open the other pages. Here is a brief description of each page:
+* **📥 Ingest** - Allows you to upload or generate sample data
+* **📚 Browse** - Allows you to view Users, Devices, Apps, and CI items.
+* **❓ Ask** - Allows you to ask natural-language questions view the generated SQL, and see the results of the query.
+"""
+)
+
+api_url = os.getenv("API_BASE_URL", "http://localhost:8000")
+# st.text_input("API Base URL", value=api_url, disabled=True)
+
+st.subheader("Health Check")
+if st.button("Run health check"):
+    try:
+        r = requests.get(f"{api_url}/healthz", timeout=5)
+        data = r.json()
+        st.success("Server is reachable ✅")
+        st.json(data)
+        if not data.get("model_ready", False):
+            st.warning("Model is not ready yet. Wait a moment or check logs.")
+    except Exception as e:
+        st.error(f"Health check failed: {e}")

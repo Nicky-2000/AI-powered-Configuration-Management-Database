@@ -1,4 +1,3 @@
-# client/pages/2_📥_Ingest.py
 import streamlit as st, random, requests, json, time, io
 import api as API
 from gen_data import gen_hardware_record, gen_okta_user_record
@@ -73,11 +72,11 @@ with cA:
         st.session_state.generated_records = _gen(kind, total_n, mix_ratio)
         st.success(f"Generated {len(st.session_state.generated_records)} {kind} record(s).")
 with cB:
-    if st.button("👀 Preview first 10", key="btn_preview"):
+    if st.button("Preview first 2 elements", key="btn_preview"):
         if not st.session_state.generated_records:
             st.info("No generated dataset yet — click **Generate dataset** first.")
         else:
-            show_json(st.session_state.generated_records[:10], caption="Preview (first 10)")
+            show_json(st.session_state.generated_records[:2], caption="Preview (first 2 records)")
 with cC:
     if st.session_state.generated_records:
         _dl_button_from_records(st.session_state.generated_records)

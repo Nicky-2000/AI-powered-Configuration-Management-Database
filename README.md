@@ -79,9 +79,9 @@ erDiagram
 
     APP {
         int app_id PK
-        string name UNIQUE
+        string name
         string owner
-        string type
+        string app_type
     }
 
     USER_APP {

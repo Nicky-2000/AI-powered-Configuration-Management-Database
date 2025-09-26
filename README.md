@@ -3,6 +3,11 @@
 
 A lightweight CMDB with an **AI-powered natural-language -> SQL** interface and a simple Streamlit client.
 
+## Requirements
+- **Python 3.12+** (project developed and tested on Python 3.12)
+- No manual virtual-env setup needed: `run_server.sh` and `run_client.sh` will create and use a local `venv` automatically.
+- A modern web browser for the Streamlit client
+
 
 ## How to Run
 
@@ -133,6 +138,7 @@ Currently there is "72%" test coverage
 
 
 ## Full Project Structure: 
+```
 AI-powered-Configuration-Management-Database/
 ├─ app/
 │  ├─ main.py               # FastAPI entry point
@@ -148,3 +154,4 @@ AI-powered-Configuration-Management-Database/
 ├─ client/                  # Streamlit UI
 ├─ tests/                   # Pytest suite (integration + unit)
 └─ hf-cache/                # Hugging Face model cache (ignored in git)
+```

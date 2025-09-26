@@ -3,6 +3,12 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+# Hugging Face cache
+/hf-cache/
+
+# Database
+cmdb.sqlite3
+
 # C extensions
 *.so
 

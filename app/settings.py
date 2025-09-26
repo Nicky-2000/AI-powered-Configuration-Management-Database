@@ -1,7 +1,6 @@
-# app/settings.py
 from pathlib import Path
 
-# Smaller Text-to-SQL model
+# Smaller Modelll!! Everything else breaks my laptop sorry
 NLSQL_MODEL_ID = "NumbersStation/nsql-350M"
 NLSQL_MAX_NEW_TOKENS = 128
 

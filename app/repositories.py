@@ -1,10 +1,9 @@
-# app/repositories.py
 import logging
 from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm import Session
 from app.models import Device, User
-from app.normalizers import get_default_normalizer  # new unified import
+from app.normalizers import get_default_normalizer
 
 log = logging.getLogger(__name__)
 

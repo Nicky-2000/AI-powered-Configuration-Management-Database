@@ -1,4 +1,3 @@
-# app/normalizers/base.py
 from typing import Protocol
 from .types import CITypes, Record
 

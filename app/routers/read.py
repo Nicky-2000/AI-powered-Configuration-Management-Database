@@ -1,6 +1,4 @@
-# app/routers/read.py
 from typing import Any, Dict, List, Optional
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -10,14 +8,12 @@ from app.models import User, Device, App, UserApp
 
 router = APIRouter(prefix="", tags=["read"])
 
-# ------------------------
-# Serializers
-# ------------------------
+# -------------------------------------------------------------------
+# Helper serializers: turn ORM objects into plain dicts for JSON
+# -------------------------------------------------------------------
 def _user_to_dict(u: User, db: Session) -> Dict[str, Any]:
-    app_names = [
-        ua.app_name
-        for ua in db.query(UserApp).filter(UserApp.user_id == u.user_id).all()
-    ]
+    """Return a user row plus related apps and device IDs."""
+    app_names = [ua.app_name for ua in db.query(UserApp).filter(UserApp.user_id == u.user_id).all()]
     devices = db.query(Device).filter(Device.assigned_user == u.user_id).all()
     return {
         "user_id": u.user_id,
@@ -31,8 +27,8 @@ def _user_to_dict(u: User, db: Session) -> Dict[str, Any]:
         "devices": [d.device_id for d in devices],
     }
 
-
 def _device_to_dict(d: Device, db: Session) -> Dict[str, Any]:
+    """Return a device row and, if present, basic info about the assigned user."""
     user = None
     if d.assigned_user:
         u = db.query(User).filter(User.user_id == d.assigned_user).first()
@@ -51,12 +47,9 @@ def _device_to_dict(d: Device, db: Session) -> Dict[str, Any]:
         "last_checkin": d.last_checkin,
     }
 
-
 def _app_to_dict(a: App, db: Session) -> Dict[str, Any]:
-    uids = [
-        ua.user_id
-        for ua in db.query(UserApp).filter(UserApp.app_name == a.name).all()
-    ]
+    """Return an app row plus IDs of users who have it."""
+    uids = [ua.user_id for ua in db.query(UserApp).filter(UserApp.app_name == a.name).all()]
     return {
         "app_id": a.app_id,
         "name": a.name,
@@ -65,10 +58,9 @@ def _app_to_dict(a: App, db: Session) -> Dict[str, Any]:
         "users": uids,
     }
 
-
-# ------------------------
+# -------------------------------------------------------------------
 # List endpoints
-# ------------------------
+# -------------------------------------------------------------------
 @router.get("/users")
 def list_users(
     status: Optional[str] = Query(None, description="Exact user status match"),
@@ -78,14 +70,19 @@ def list_users(
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
 ) -> List[Dict[str, Any]]:
+    """
+    List users with optional filters:
+      - status
+      - mfa_enabled
+      - app name substring
+    """
     q = db.query(User)
-
     if status:
         q = q.filter(User.status == status)
     if mfa is not None:
         q = q.filter(User.mfa_enabled == mfa)
     if app:
-        # join through UserApp to find users with an app name containing `app`
+        # Filter by users linked to apps matching the name substring
         ua_sub = (
             db.query(UserApp.user_id)
             .join(App, App.name == UserApp.app_name)
@@ -93,11 +90,8 @@ def list_users(
             .subquery()
         )
         q = q.filter(User.user_id.in_(ua_sub))
-
     q = q.offset(offset).limit(limit)
-    users = q.all()
-    return [_user_to_dict(u, db) for u in users]
-
+    return [_user_to_dict(u, db) for u in q.all()]
 
 @router.get("/devices")
 def list_devices(
@@ -107,17 +101,14 @@ def list_devices(
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
 ) -> List[Dict[str, Any]]:
+    """List devices with optional filters on status and location."""
     q = db.query(Device)
-
     if status:
         q = q.filter(Device.status == status)
     if location:
         q = q.filter(func.lower(Device.location).like(f"%{location.lower()}%"))
-
     q = q.offset(offset).limit(limit)
-    devices = q.all()
-    return [_device_to_dict(d, db) for d in devices]
-
+    return [_device_to_dict(d, db) for d in q.all()]
 
 @router.get("/apps")
 def list_apps(
@@ -126,80 +117,70 @@ def list_apps(
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
 ) -> List[Dict[str, Any]]:
+    """List apps by optional name substring."""
     qq = db.query(App)
     if q:
         qq = qq.filter(func.lower(App.name).like(f"%{q.lower()}%"))
-
     qq = qq.offset(offset).limit(limit)
-    apps = qq.all()
-    return [_app_to_dict(a, db) for a in apps]
+    return [_app_to_dict(a, db) for a in qq.all()]
 
-
-# ------------------------
+# -------------------------------------------------------------------
 # Unified CI lookup
-# ------------------------
+# -------------------------------------------------------------------
 @router.get("/ci/{ci_id}")
 def get_ci(
     ci_id: str,
     kind: Optional[str] = Query(
         None,
         pattern="^(user|device|app)$",
-        description="Optionally restrict search to a single kind",
+        description="Restrict search to a specific type if desired",
     ),
     db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
     """
-    Unified CI lookup by identifier.
+    Fetch a single Configuration Item (CI) by ID.
 
-    If `kind` is provided, search only that type:
-      - kind=user   → match `users.user_id`
-      - kind=device → match `devices.device_id`
-      - kind=app    → try `apps.name`, else numeric `apps.app_id`
-
-    If `kind` is omitted, automatic detection order is:
-      device_id → user_id → app name → app_id(int).
+    - If `kind` is specified, look only in that table.
+    - If not, auto-detect in order: device_id → user_id → app name → app_id.
     """
-    # Narrowed search
     if kind == "device":
         d = db.query(Device).filter(Device.device_id == ci_id).first()
-        if not d: raise HTTPException(status_code=404, detail="Device not found")
+        if not d: raise HTTPException(404, "Device not found")
         return {"kind": "device", "item": _device_to_dict(d, db)}
 
     if kind == "user":
         u = db.query(User).filter(User.user_id == ci_id).first()
-        if not u: raise HTTPException(status_code=404, detail="User not found")
+        if not u: raise HTTPException(404, "User not found")
         return {"kind": "user", "item": _user_to_dict(u, db)}
 
     if kind == "app":
         a = db.query(App).filter(App.name == ci_id).first()
         if not a:
+            # If name fails, try integer app_id
             try:
                 aid = int(ci_id)
                 a = db.query(App).filter(App.app_id == aid).first()
             except ValueError:
                 a = None
-        if not a: raise HTTPException(status_code=404, detail="App not found")
+        if not a: raise HTTPException(404, "App not found")
         return {"kind": "app", "item": _app_to_dict(a, db)}
 
-    # Automatic detection order (device_id → user_id → app name → app_id)
+    # Auto-detect search order
     d = db.query(Device).filter(Device.device_id == ci_id).first()
-    if d:
-        return {"kind": "device", "item": _device_to_dict(d, db)}
+    if d: return {"kind": "device", "item": _device_to_dict(d, db)}
 
     u = db.query(User).filter(User.user_id == ci_id).first()
-    if u:
-        return {"kind": "user", "item": _user_to_dict(u, db)}
+    if u: return {"kind": "user", "item": _user_to_dict(u, db)}
 
     a = db.query(App).filter(App.name == ci_id).first()
-    if a:
-        return {"kind": "app", "item": _app_to_dict(a, db)}
+    if a: return {"kind": "app", "item": _app_to_dict(a, db)}
 
+    # Final attempt: numeric app_id
     try:
         aid = int(ci_id)
         a2 = db.query(App).filter(App.app_id == aid).first()
-        if a2:
-            return {"kind": "app", "item": _app_to_dict(a2, db)}
+        if a2: return {"kind": "app", "item": _app_to_dict(a2, db)}
     except ValueError:
         pass
 
-    raise HTTPException(status_code=404, detail="CI not found")
+    raise HTTPException(404, "CI not found")
